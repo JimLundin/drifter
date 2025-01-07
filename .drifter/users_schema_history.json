@@ -1,0 +1,61 @@
+[
+  {
+    "columns": {
+      "id": {
+        "type": "Int64",
+        "nullable": true
+      },
+      "name": {
+        "type": "String",
+        "nullable": true
+      },
+      "age": {
+        "type": "Int64",
+        "nullable": true
+      }
+    }
+  },
+  {
+    "columns": {
+      "id": {
+        "type": "Int64",
+        "nullable": true
+      },
+      "name": {
+        "type": "String",
+        "nullable": true
+      },
+      "age": {
+        "type": "String",
+        "nullable": true
+      },
+      "email": {
+        "type": "String",
+        "nullable": true
+      }
+    }
+  },
+  {
+    "columns": {
+      "id": {
+        "type": "Int64"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  {
+    "columns": {
+      "id": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "email": {
+        "type": "String"
+      }
+    }
+  }
+]
