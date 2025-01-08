@@ -281,3 +281,146 @@ def test_schema_hash() -> None:
     schema6 = _create_schema(df6)
     assert schema5["hash"] == schema6["hash"]
     assert _are_schemas_equal(schema5, schema6)
+
+    # Renamed columns should have different hash
+    df7 = pl.DataFrame({"c": [1], "b": ["x"]})  # 'a' renamed to 'c'
+    schema7 = _create_schema(df7)
+    assert schema1["hash"] != schema7["hash"]
+    assert not _are_schemas_equal(schema1, schema7)
+
+
+def test_register_column_rename() -> None:
+    """Test schema changes when renaming columns."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Initial schema
+        df1 = pl.DataFrame(
+            {
+                "old_name": [1, 2, 3],
+                "unchanged": ["a", "b", "c"],
+            },
+        )
+        changes = register(df1, "test", tmpdir)
+        assert changes  # Should have changes on first registration
+        assert len(changes.added) == 2  # Both fields should be added
+        assert not changes.removed
+        assert not changes.changed
+
+        # Rename column
+        df2 = pl.DataFrame(
+            {
+                "new_name": [1, 2, 3],  # Renamed from old_name
+                "unchanged": ["a", "b", "c"],
+            },
+        )
+        changes = register(df2, "test", tmpdir)
+        assert changes  # Should have changes
+        assert len(changes.added) == 1  # One field added (new_name)
+        assert len(changes.removed) == 1  # One field removed (old_name)
+        assert not changes.changed  # No type changes
+        assert "new_name" in changes.added
+        assert "old_name" in changes.removed
+
+
+def test_schema_hash_nested_types() -> None:
+    """Test schema hash calculation with nested types."""
+    # List type - same inner type should have same hash
+    df1 = pl.DataFrame({"a": [[1, 2]], "b": ["x"]})
+    df2 = pl.DataFrame({"a": [[3, 4]], "b": ["y"]})
+    schema1 = _create_schema(df1)
+    schema2 = _create_schema(df2)
+    assert schema1["hash"] == schema2["hash"]
+    assert _are_schemas_equal(schema1, schema2)
+
+    # List type - different inner type should have different hash
+    df3 = pl.DataFrame({"a": [["1", "2"]], "b": ["x"]})  # List[String] vs List[Int64]
+    schema3 = _create_schema(df3)
+    assert schema1["hash"] != schema3["hash"]
+    assert not _are_schemas_equal(schema1, schema3)
+
+    # Array type - same inner type and size should have same hash
+    df4 = pl.DataFrame({"a": pl.Series([[1, 2]], dtype=pl.Array(pl.Int64, 2))})
+    df5 = pl.DataFrame({"a": pl.Series([[3, 4]], dtype=pl.Array(pl.Int64, 2))})
+    schema4 = _create_schema(df4)
+    schema5 = _create_schema(df5)
+    assert schema4["hash"] == schema5["hash"]
+    assert _are_schemas_equal(schema4, schema5)
+
+    # Array type - different size should have different hash
+    df6 = pl.DataFrame({"a": pl.Series([[1, 2, 3]], dtype=pl.Array(pl.Int64, 3))})
+    schema6 = _create_schema(df6)
+    assert schema4["hash"] != schema6["hash"]
+    assert not _are_schemas_equal(schema4, schema6)
+
+    # Struct type - same field names and types should have same hash
+    df7 = pl.DataFrame({"a": [{"x": 1, "y": "a"}]})
+    df8 = pl.DataFrame({"a": [{"x": 2, "y": "b"}]})
+    schema7 = _create_schema(df7)
+    schema8 = _create_schema(df8)
+    assert schema7["hash"] == schema8["hash"]
+    assert _are_schemas_equal(schema7, schema8)
+
+    # Struct type - different field types should have different hash
+    df9 = pl.DataFrame({"a": [{"x": "1", "y": "a"}]})  # x is String vs Int64
+    schema9 = _create_schema(df9)
+    assert schema7["hash"] != schema9["hash"]
+    assert not _are_schemas_equal(schema7, schema9)
+
+    # Struct type - different field names should have different hash
+    df10 = pl.DataFrame({"a": [{"x": 1, "z": "a"}]})  # y renamed to z
+    schema10 = _create_schema(df10)
+    assert schema7["hash"] != schema10["hash"]
+    assert not _are_schemas_equal(schema7, schema10)
+
+
+def test_register_nested_type_changes() -> None:
+    """Test schema changes with nested types."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Initial schema with nested types
+        df1 = pl.DataFrame(
+            {
+                "list_col": [[1, 2]],
+                "array_col": pl.Series([[1, 2]], dtype=pl.Array(pl.Int64, 2)),
+                "struct_col": [{"x": 1, "y": "a"}],
+            },
+        )
+        changes = register(df1, "test", tmpdir)
+        assert changes  # Should have changes on first registration
+        assert len(changes.added) == 3  # All fields should be added
+        assert not changes.removed
+        assert not changes.changed
+
+        # Change inner types
+        df2 = pl.DataFrame(
+            {
+                "list_col": [["1", "2"]],  # Changed inner type to String
+                "array_col": pl.Series(
+                    [[1, 2, 3]], dtype=pl.Array(pl.Int64, 3),
+                ),  # Changed size
+                "struct_col": [{"x": "1", "y": "a"}],  # Changed x type to String
+            },
+        )
+        changes = register(df2, "test", tmpdir)
+        assert changes  # Should have changes
+        assert not changes.added  # No fields added
+        assert not changes.removed  # No fields removed
+        assert len(changes.changed) == 3  # All fields changed
+        assert "list_col" in changes.changed
+        assert "array_col" in changes.changed
+        assert "struct_col" in changes.changed
+
+        # Rename struct field
+        df3 = pl.DataFrame(
+            {
+                "list_col": [["1", "2"]],  # Same as df2
+                "array_col": pl.Series(
+                    [[1, 2, 3]], dtype=pl.Array(pl.Int64, 3),
+                ),  # Same as df2
+                "struct_col": [{"x": "1", "z": "a"}],  # Renamed y to z
+            },
+        )
+        changes = register(df3, "test", tmpdir)
+        assert changes  # Should have changes
+        assert not changes.added  # No fields added
+        assert not changes.removed  # No fields removed
+        assert len(changes.changed) == 1  # Only struct_col changed
+        assert "struct_col" in changes.changed
