@@ -1,60 +1,49 @@
 [
   {
-    "columns": {
+    "version": "1.0",
+    "fields": {
       "id": {
-        "type": "Int64",
-        "nullable": true
+        "name": "id",
+        "dtype": "int",
+        "bit_width": 64,
+        "type_hash": 282627168
       },
       "name": {
-        "type": "String",
-        "nullable": true
+        "name": "name",
+        "dtype": "string",
+        "type_hash": 282628220
       },
       "age": {
-        "type": "Int64",
-        "nullable": true
+        "name": "age",
+        "dtype": "int",
+        "bit_width": 64,
+        "type_hash": 282627168
       }
     }
   },
   {
-    "columns": {
+    "version": "1.0",
+    "fields": {
       "id": {
-        "type": "Int64",
-        "nullable": true
+        "name": "id",
+        "dtype": "int",
+        "bit_width": 64,
+        "type_hash": 282627168
       },
       "name": {
-        "type": "String",
-        "nullable": true
+        "name": "name",
+        "dtype": "string",
+        "type_hash": 282628220
       },
       "age": {
-        "type": "String",
-        "nullable": true
+        "name": "age",
+        "dtype": "string",
+        "type_hash": 282628220
       },
       "email": {
-        "type": "String",
-        "nullable": true
-      }
-    }
-  },
-  {
-    "columns": {
-      "id": {
-        "type": "Int64"
-      },
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  {
-    "columns": {
-      "id": {
-        "type": "String"
-      },
-      "name": {
-        "type": "String"
-      },
-      "email": {
-        "type": "String"
+        "name": "email",
+        "dtype": "string",
+        "type_hash": 282628220
       }
     }
   }
