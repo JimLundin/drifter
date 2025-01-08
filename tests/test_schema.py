@@ -8,6 +8,8 @@ import polars as pl
 from drifter.schema import (
     DType,
     _are_fields_equal,
+    _are_schemas_equal,
+    _create_schema,
     _polars_type_to_field,
     register,
 )
@@ -248,3 +250,34 @@ def test_register_complex_changes() -> None:
         assert not changes.added  # No fields added
         assert not changes.removed  # No fields removed
         assert len(changes.changed) == 2  # Both fields changed type
+
+
+def test_schema_hash() -> None:
+    """Test schema hash calculation."""
+    # Same schema should have same hash
+    df1 = pl.DataFrame({"a": [1], "b": ["x"]})
+    df2 = pl.DataFrame({"a": [2], "b": ["y"]})  # Different values, same schema
+    schema1 = _create_schema(df1)
+    schema2 = _create_schema(df2)
+    assert schema1["hash"] == schema2["hash"]
+    assert _are_schemas_equal(schema1, schema2)
+
+    # Different schemas should have different hashes
+    df3 = pl.DataFrame({"a": ["1"], "b": ["x"]})  # Changed type of 'a'
+    schema3 = _create_schema(df3)
+    assert schema1["hash"] != schema3["hash"]
+    assert not _are_schemas_equal(schema1, schema3)
+
+    # Field order shouldn't affect hash
+    df4 = pl.DataFrame({"b": ["x"], "a": [1]})  # Same as df1, different order
+    schema4 = _create_schema(df4)
+    assert schema1["hash"] == schema4["hash"]
+    assert _are_schemas_equal(schema1, schema4)
+
+    # Empty schemas should have consistent hash
+    df5 = pl.DataFrame()
+    df6 = pl.DataFrame()
+    schema5 = _create_schema(df5)
+    schema6 = _create_schema(df6)
+    assert schema5["hash"] == schema6["hash"]
+    assert _are_schemas_equal(schema5, schema6)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypedDict
@@ -48,6 +48,7 @@ class DType(StrEnum):
 
 
 type TimeUnit = Literal["ns", "us", "ms"]
+
 
 class BaseField(TypedDict):
     """Base schema field with common attributes."""
@@ -159,6 +160,7 @@ class Schema(TypedDict):
     """The complete schema definition."""
 
     version: str
+    hash: int
     fields: dict[str, Field]
 
 
@@ -175,9 +177,9 @@ class ColumnChange:
 class SchemaChanges:
     """Contains all detected schema changes between versions."""
 
-    added: dict[str, Field]  # Added field names
-    removed: dict[str, Field]  # Removed field names
-    changed: dict[str, ColumnChange]  # Changed field types
+    added: dict[str, Field] = field(default_factory=dict)  # Added field names
+    removed: dict[str, Field] = field(default_factory=dict)  # Removed field names
+    changed: dict[str, ColumnChange] = field(default_factory=dict)  # Changed fields
 
     def has_changes(self) -> bool:
         """Check if there are any schema changes."""
@@ -331,19 +333,46 @@ def _polars_type_to_field(name: str, dtype: PolarsDataType) -> Field:
     return field
 
 
+def _calculate_schema_hash(fields: dict[str, Field]) -> int:
+    """Calculate a hash for the entire schema based on field type hashes.
+
+    The hash is calculated by sorting field names and combining their type hashes
+    to ensure deterministic results regardless of field order.
+    """
+    # Sort field names to ensure deterministic hash
+    sorted_fields = sorted(fields.items())
+
+    # Combine field name and type hash for each field
+    field_hashes = [hash((name, field["type_hash"])) for name, field in sorted_fields]
+
+    # Combine all hashes
+    if not field_hashes:
+        return 0
+
+    return hash(tuple(field_hashes))
+
+
 def _are_fields_equal(field1: Field, field2: Field) -> bool:
     """Compare two fields for equality using type hashes."""
     return field1["type_hash"] == field2["type_hash"]
 
 
+def _are_schemas_equal(schema1: Schema, schema2: Schema) -> bool:
+    """Compare two schemas for equality using schema hashes."""
+    return schema1["hash"] == schema2["hash"]
+
+
 def _create_schema(df: pl.DataFrame) -> Schema:
     """Create a schema from a DataFrame."""
+    fields = {
+        name: _polars_type_to_field(name, dtype)
+        for name, dtype in zip(df.columns, df.dtypes, strict=True)
+    }
+
     return {
         "version": "1.0",
-        "fields": {
-            name: _polars_type_to_field(name, dtype)
-            for name, dtype in zip(df.columns, df.dtypes, strict=True)
-        },
+        "hash": _calculate_schema_hash(fields),
+        "fields": fields,
     }
 
 
@@ -374,11 +403,7 @@ def register(
     if not schema_file.exists():
         with schema_file.open("w") as f:
             json.dump([current_schema], f, indent=2)
-        return SchemaChanges(
-            added=current_schema["fields"],
-            removed={},
-            changed={},
-        )
+        return SchemaChanges(added=current_schema["fields"])
 
     # Load history
     with schema_file.open() as f:
@@ -386,6 +411,10 @@ def register(
 
     # Detect changes from previous schema
     prev_schema = history[-1]
+
+    # Quick check for schema equality using hashes
+    if _are_schemas_equal(current_schema, prev_schema):
+        return SchemaChanges()
 
     # Find added and removed fields
     added = {

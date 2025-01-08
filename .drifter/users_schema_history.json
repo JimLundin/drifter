@@ -1,49 +1,51 @@
 [
   {
     "version": "1.0",
+    "hash": -2052666680473829674,
     "fields": {
       "id": {
         "name": "id",
         "dtype": "int",
         "bit_width": 64,
-        "type_hash": 282627168
+        "type_hash": 358170969
       },
       "name": {
         "name": "name",
         "dtype": "string",
-        "type_hash": 282628220
+        "type_hash": 358172021
       },
       "age": {
         "name": "age",
         "dtype": "int",
         "bit_width": 64,
-        "type_hash": 282627168
+        "type_hash": 358170969
       }
     }
   },
   {
     "version": "1.0",
+    "hash": -353375367616006328,
     "fields": {
       "id": {
         "name": "id",
         "dtype": "int",
         "bit_width": 64,
-        "type_hash": 282627168
+        "type_hash": 358170969
       },
       "name": {
         "name": "name",
         "dtype": "string",
-        "type_hash": 282628220
+        "type_hash": 358172021
       },
       "age": {
         "name": "age",
         "dtype": "string",
-        "type_hash": 282628220
+        "type_hash": 358172021
       },
       "email": {
         "name": "email",
         "dtype": "string",
-        "type_hash": 282628220
+        "type_hash": 358172021
       }
     }
   }
