@@ -4,7 +4,6 @@
 import pytest
 
 from drifter.core import (
-    ArrayField,
     BinaryField,
     BooleanField,
     CategoricalField,
@@ -14,9 +13,9 @@ from drifter.core import (
     EnumField,
     FloatField,
     IntegerField,
-    ListField,
     NullField,
     Schema,
+    SequenceField,
     StringField,
     StructField,
     TimeField,
@@ -91,53 +90,34 @@ def test_other_fields() -> None:
     assert restored == schema
 
 
-def test_array_field() -> None:
-    """Test array fields with shape and width."""
-    # Simple array
-    simple = ArrayField(
+def test_sequence_field() -> None:
+    """Test sequence fields with and without size."""
+    # Variable-length sequence
+    variable = SequenceField(
         nullable=False,
         inner=IntegerField(nullable=True, bits=32, signed=True),
-        shape=[2, 3],
-        width=6,
+        size=None,
     )
 
-    # Nested array
-    nested = ArrayField(
+    # Fixed-length sequence
+    fixed = SequenceField(
         nullable=True,
-        inner=ArrayField(
-            nullable=True,
-            inner=StringField(nullable=False),
-            shape=[4],
-            width=4,
-        ),
-        shape=[2],
-        width=2,
+        inner=StringField(nullable=False),
+        size=6,  # Fixed length of 6 elements
     )
 
-    schema = Schema(fields={"simple": simple, "nested": nested})
-    data = schema.to_dict()
-    restored = Schema.from_dict(data)
-    assert restored == schema
-
-
-def test_list_field() -> None:
-    """Test list fields."""
-    # Simple list
-    simple = ListField(
-        nullable=False,
-        inner=IntegerField(nullable=True, bits=32, signed=True),
-    )
-
-    # Nested list
-    nested = ListField(
+    # Nested sequences
+    nested = SequenceField(
         nullable=True,
-        inner=ListField(
-            nullable=True,
-            inner=StringField(nullable=False),
+        inner=SequenceField(
+            nullable=False,
+            inner=FloatField(nullable=True, bits=64),
+            size=4,  # Fixed inner length
         ),
+        size=None,  # Variable outer length
     )
 
-    schema = Schema(fields={"simple": simple, "nested": nested})
+    schema = Schema(fields={"variable": variable, "fixed": fixed, "nested": nested})
     data = schema.to_dict()
     restored = Schema.from_dict(data)
     assert restored == schema
@@ -155,26 +135,20 @@ def test_struct_field() -> None:
         },
     )
 
-    # Nested struct with array and list
+    # Nested struct with sequences
     nested = StructField(
         nullable=True,
         fields={
             "id": IntegerField(nullable=False, bits=32, signed=True),
-            "tags": ArrayField(
+            "values": SequenceField(
+                nullable=True,
+                inner=FloatField(nullable=False, bits=64),
+                size=9,  # Fixed size sequence
+            ),
+            "tags": SequenceField(
                 nullable=True,
                 inner=StringField(nullable=False),
-                shape=[3],
-                width=3,
-            ),
-            "metrics": ListField(
-                nullable=True,
-                inner=StructField(
-                    nullable=False,
-                    fields={
-                        "name": StringField(nullable=False),
-                        "value": FloatField(nullable=False, bits=64),
-                    },
-                ),
+                size=None,  # Variable length
             ),
         },
     )
@@ -187,12 +161,12 @@ def test_struct_field() -> None:
 
 def test_invalid_field_type() -> None:
     """Test handling of invalid field types."""
-    with pytest.raises(ValueError, match="Unknown field type: InvalidType"):
+    with pytest.raises(ValueError, match="Unknown field type: invalidtype"):
         Schema.from_dict(
             {
                 "fields": {
                     "invalid": {
-                        "type": "InvalidType",
+                        "type": "invalidtype",
                         "nullable": True,
                     },
                 },
@@ -208,20 +182,21 @@ def test_complex_nested_schema() -> None:
                 nullable=False,
                 fields={
                     "version": IntegerField(nullable=False, bits=32, signed=True),
-                    "categories": ListField(
+                    "categories": SequenceField(
                         nullable=True,
                         inner=CategoricalField(nullable=False, ordered=True),
+                        size=None,  # Variable length
                     ),
                 },
             ),
-            "data": ListField(
+            "data": SequenceField(
                 nullable=False,
                 inner=StructField(
                     nullable=False,
                     fields={
                         "id": IntegerField(nullable=False, bits=64, signed=True),
                         "timestamp": DatetimeField(nullable=False),
-                        "measurements": ArrayField(
+                        "measurements": SequenceField(
                             nullable=True,
                             inner=StructField(
                                 nullable=False,
@@ -234,11 +209,11 @@ def test_complex_nested_schema() -> None:
                                     ),
                                 },
                             ),
-                            shape=[10],
-                            width=10,
+                            size=10,  # Fixed-size measurement sequence
                         ),
                     },
                 ),
+                size=None,  # Variable length data sequence
             ),
         },
     )
