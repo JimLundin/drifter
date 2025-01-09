@@ -91,7 +91,7 @@ class ListField(Field):
 class StructField(Field):
     """Represents a struct column schema with type information and metadata."""
 
-    fields: dict[str, Field]
+    fields: Mapping[str, Field]
     type: Literal["Struct"] = field(init=False, default="Struct")
 
 
