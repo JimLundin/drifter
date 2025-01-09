@@ -14,11 +14,10 @@ def main() -> None:
         "age": [25, 30, 35],
     })
 
-    print("Registering initial schema...")
     if changes := register(test_df, "users"):
-        print("Changes detected:", changes)
+        """Changes detected"""
     else:
-        print("No changes detected.")
+        """No changes detected."""
 
     # Second run - with schema changes
     test_df_updated = pl.DataFrame({
@@ -28,11 +27,10 @@ def main() -> None:
         "email": ["alice@example.com", "bob@example.com", "charlie@example.com"],
     })
 
-    print("Registering updated schema...")
     if changes := register(test_df_updated, "users"):
-        print("Changes detected:", changes)
+        """Changes detected"""
     else:
-        print("No changes detected.")
+        """No changes detected."""
 
 if __name__ == "__main__":
     main()
