@@ -21,7 +21,7 @@ class FloatField(Field):
     """Represents a floating-point number."""
 
     bits: Literal[32, 64]
-    type: Literal["float"] = field(init=False, default="float")
+    type: str = field(init=False, default="float")
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,7 @@ class IntegerField(Field):
 
     bits: Literal[8, 16, 32, 64]
     signed: bool
-    type: Literal["integer"] = field(init=False, default="integer")
+    type: str = field(init=False, default="integer")
 
 
 # Temporal Types
@@ -40,28 +40,28 @@ class IntegerField(Field):
 class DateField(Field):
     """Represents a date."""
 
-    type: Literal["date"] = field(init=False, default="date")
+    type: str = field(init=False, default="date")
 
 
 @dataclass(frozen=True)
 class DatetimeField(Field):
     """Represents a datetime."""
 
-    type: Literal["datetime"] = field(init=False, default="datetime")
+    type: str = field(init=False, default="datetime")
 
 
 @dataclass(frozen=True)
 class DurationField(Field):
     """Represents a duration."""
 
-    type: Literal["duration"] = field(init=False, default="duration")
+    type: str = field(init=False, default="duration")
 
 
 @dataclass(frozen=True)
 class TimeField(Field):
     """Represents a time."""
 
-    type: Literal["time"] = field(init=False, default="time")
+    type: str = field(init=False, default="time")
 
 
 # Collection Types
@@ -78,7 +78,7 @@ class SequenceField(Field):
 
     inner: Field
     size: int | None
-    type: Literal["sequence"] = field(init=False, default="sequence")
+    type: str = field(init=False, default="sequence")
 
 
 @dataclass(frozen=True)
@@ -86,7 +86,7 @@ class StructField(Field):
     """Represents a struct."""
 
     fields: Mapping[str, Field]
-    type: Literal["struct"] = field(init=False, default="struct")
+    type: str = field(init=False, default="struct")
 
 
 # String Types
@@ -96,7 +96,7 @@ class StructField(Field):
 class StringField(Field):
     """Represents a UTF-8 string."""
 
-    type: Literal["string"] = field(init=False, default="string")
+    type: str = field(init=False, default="string")
 
 
 @dataclass(frozen=True)
@@ -104,7 +104,7 @@ class CategoricalField(Field):
     """Represents a categorical value."""
 
     ordered: bool = False
-    type: Literal["categorical"] = field(init=False, default="categorical")
+    type: str = field(init=False, default="categorical")
 
 
 @dataclass(frozen=True)
@@ -112,7 +112,7 @@ class EnumField(Field):
     """Represents an enum."""
 
     variants: list[str]
-    type: Literal["enum"] = field(init=False, default="enum")
+    type: str = field(init=False, default="enum")
 
 
 # Other Types
@@ -122,21 +122,21 @@ class EnumField(Field):
 class BinaryField(Field):
     """Represents a binary blob."""
 
-    type: Literal["binary"] = field(init=False, default="binary")
+    type: str = field(init=False, default="binary")
 
 
 @dataclass(frozen=True)
 class BooleanField(Field):
     """Represents a boolean value."""
 
-    type: Literal["boolean"] = field(init=False, default="boolean")
+    type: str = field(init=False, default="boolean")
 
 
 @dataclass(frozen=True)
 class NullField(Field):
     """Represents a null value."""
 
-    type: Literal["null"] = field(init=False, default="null")
+    type: str = field(init=False, default="null")
 
 
 FIELD_CLASSES = {
@@ -159,7 +159,7 @@ FIELD_CLASSES = {
 
 def field_from_dict(data: Mapping[str, Any]) -> Field:
     """Create a Field instance from a dictionary representation."""
-    field_type = data["type"].lower()  # Convert type to lowercase
+    field_type = data["type"]
 
     if field_type == "struct":
         return StructField(
