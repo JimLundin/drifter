@@ -13,6 +13,8 @@ import polars as pl
 
 @dataclass(frozen=True)
 class ColumnChange:
+    """Represents a change in a column's schema."""
+
     name: str
     old_type: pl.DataType | None = None
     new_type: pl.DataType | None = None
@@ -34,8 +36,39 @@ class SchemaChange:
 class SchemaVersion(TypedDict):
     """Represents a version of a schema."""
 
-    dataframe: str
-    timestamp: str
+    dataframe: str  # Base64 encoded serialized DataFrame
+    timestamp: str  # ISO 8601 timestamp
+
+
+def _load_history(file: Path) -> list[SchemaVersion]:
+    """Load schema history from a file.
+
+    Args:
+        file: Path to the schema file.
+
+    Returns:
+        List of schema versions.
+
+    """
+    if not file.exists():
+        return []
+
+    try:
+        return json.loads(file.read_text())
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return []
+
+
+def _save_history(file: Path, history: list[SchemaVersion]) -> None:
+    """Save schema history to a file.
+
+    Args:
+        file: Path to save the schema file.
+        history: List of schema versions to save.
+
+    """
+    file.parent.mkdir(exist_ok=True)
+    file.write_text(json.dumps(history, indent=2))
 
 
 def _compare_schemas(old_df: pl.DataFrame, new_df: pl.DataFrame) -> SchemaChange:
@@ -83,52 +116,36 @@ def register(dataframe: pl.DataFrame, source_id: str) -> SchemaChange:
         A SchemaChange object describing the changes if any were detected.
 
     """
-    new_dataframe = dataframe.clone()
-    # Get schema directory path
-    schema_dir = Path(".drifter")
-    schema_dir.mkdir(exist_ok=True)
-    schema_file = schema_dir / f"{source_id}.json"
+    # Create empty DataFrame with same schema to minimize storage
+    empty_df = dataframe.clone()
+    schema_file = Path(".drifter") / f"{source_id}.json"
+    history = _load_history(schema_file)
 
-    # Load or initialize history
-    history: list[SchemaVersion] = []
-    if schema_file.exists():
-        try:
-            with schema_file.open() as f:
-                history = json.load(f)
-        except (json.JSONDecodeError, KeyError, TypeError):
-            # If file is corrupted, start fresh
-            history = []
-
-    # Handle schema changes
+    # For initial registration, all columns are considered added
     if not history:
         changes = SchemaChange(
             added=[
                 ColumnChange(name=name, new_type=dtype)
-                for name, dtype in new_dataframe.schema.items()
+                for name, dtype in empty_df.schema.items()
             ],
         )
     else:
-        # Deserialize the latest version's DataFrame
-        latest_version = history[-1]
-        old_df_bytes = base64.b64decode(latest_version["dataframe"])
-        old_dataframe = pl.DataFrame.deserialize(BytesIO(old_df_bytes))
-        changes = _compare_schemas(old_dataframe, new_dataframe)
+        # Compare with latest version
+        latest = history[-1]
+        old_df = pl.DataFrame.deserialize(
+            BytesIO(base64.b64decode(latest["dataframe"])),
+        )
+        changes = _compare_schemas(old_df, empty_df)
 
-    # Add new version to history if there are changes
+    # Save new version if there are changes
     if changes:
-        # Serialize the new DataFrame
-        serialized_df = new_dataframe.serialize()
-
         history.append(
             {
-                "dataframe": base64.b64encode(serialized_df).decode("ascii"),
+                "dataframe": base64.b64encode(empty_df.serialize()).decode("ascii"),
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
-
-        # Save schema history
-        with schema_file.open("w") as f:
-            json.dump(history, f, indent=2)
+        _save_history(schema_file, history)
 
     return changes
 
