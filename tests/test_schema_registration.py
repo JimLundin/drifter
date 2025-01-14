@@ -1,7 +1,9 @@
 """Tests for schema registration functionality."""
 
+import base64
 import json
 from datetime import UTC, datetime, tzinfo
+from io import BytesIO
 from pathlib import Path
 
 import polars as pl
@@ -69,7 +71,8 @@ def test_initial_registration(
     changes = register(test_df, "users")
 
     # Verify changes
-    assert changes.added == {"id", "name", "age"}
+    assert len(changes.added) == 3
+    assert {c.name for c in changes.added} == {"id", "name", "age"}
     assert not changes.removed
     assert not changes.changed
 
@@ -79,7 +82,10 @@ def test_initial_registration(
     history = json.loads(schema_file.read_text())
     assert len(history) == 1
     assert history[0]["timestamp"] == "2025-01-01T00:00:00+00:00"
-    assert set(history[0]["schema"]["fields"]) == {"id", "name", "age"}
+    # Decode base64 and deserialize the DataFrame to verify schema
+    df_bytes = base64.b64decode(history[0]["dataframe"])
+    df1 = pl.DataFrame.deserialize(BytesIO(df_bytes))
+    assert set(df1.schema.names()) == {"id", "name", "age"}
 
 
 def test_schema_changes(
@@ -116,9 +122,13 @@ def test_schema_changes(
     changes = register(updated_df, "users")
 
     # Verify changes
-    assert changes.added == {"email"}
+    assert len(changes.added) == 1
+    assert changes.added[0].name == "email"
     assert not changes.removed
-    assert changes.changed == {"age"}
+    assert len(changes.changed) == 1
+    assert changes.changed[0].name == "age"
+    assert changes.changed[0].old_type == pl.Int64
+    assert changes.changed[0].new_type == pl.Utf8
 
     # Verify schema history
     schema_file = schema_dir / ".drifter" / "users.json"
@@ -126,7 +136,10 @@ def test_schema_changes(
     assert len(history) == 2
     assert history[0]["timestamp"] == "2025-01-01T00:00:00+00:00"
     assert history[1]["timestamp"] == "2025-01-02T00:00:00+00:00"
-    assert set(history[1]["schema"]["fields"]) == {"id", "name", "age", "email"}
+    # Decode base64 and deserialize the latest DataFrame to verify schema
+    df_bytes = base64.b64decode(history[1]["dataframe"])
+    df1 = pl.DataFrame.deserialize(BytesIO(df_bytes))
+    assert set(df1.schema.names()) == {"id", "name", "age", "email"}
 
 
 def test_no_changes(
@@ -209,7 +222,8 @@ def test_schema_removal(
 
     # Verify changes
     assert not changes.added
-    assert changes.removed == {"age"}
+    assert len(changes.removed) == 1
+    assert changes.removed[0].name == "age"
     assert not changes.changed
 
     # Verify schema history
@@ -218,7 +232,10 @@ def test_schema_removal(
     assert len(history) == 2
     assert history[0]["timestamp"] == "2025-01-01T00:00:00+00:00"
     assert history[1]["timestamp"] == "2025-01-02T00:00:00+00:00"
-    assert set(history[1]["schema"]["fields"]) == {"id", "name"}
+    # Decode base64 and deserialize the latest DataFrame to verify schema
+    df_bytes = base64.b64decode(history[1]["dataframe"])
+    df1 = pl.DataFrame.deserialize(BytesIO(df_bytes))
+    assert set(df1.schema.names()) == {"id", "name"}
 
 
 def test_corrupted_schema_file(
@@ -251,7 +268,8 @@ def test_corrupted_schema_file(
     changes = register(test_df, "users")
 
     # Verify changes
-    assert changes.added == {"id", "name", "age"}
+    assert len(changes.added) == 3
+    assert {c.name for c in changes.added} == {"id", "name", "age"}
     assert not changes.removed
     assert not changes.changed
 
@@ -260,3 +278,7 @@ def test_corrupted_schema_file(
     history = json.loads(schema_file.read_text())
     assert len(history) == 1
     assert history[0]["timestamp"] == "2025-01-01T00:00:00+00:00"
+    # Decode base64 and deserialize the DataFrame to verify schema
+    df_bytes = base64.b64decode(history[0]["dataframe"])
+    df1 = pl.DataFrame.deserialize(BytesIO(df_bytes))
+    assert set(df1.schema.names()) == {"id", "name", "age"}
